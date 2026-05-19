@@ -1,5 +1,6 @@
 package com.more_relics.fabric.compat.trinkets;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import dev.emi.trinkets.api.SlotReference;
 import dev.emi.trinkets.api.TrinketItem;
@@ -24,12 +25,20 @@ public class MoreRelicsTrinketItem extends TrinketItem {
     }
 
     public Multimap<RegistryEntry<EntityAttribute>, EntityAttributeModifier> getModifiers(ItemStack stack, SlotReference slot, LivingEntity entity, Identifier slotIdentifier) {
-        var modifiers = super.getModifiers(stack, slot, entity, slotIdentifier);
+        var defaultModifiers = super.getModifiers(stack, slot, entity, slotIdentifier);
+
+        // --- FIX TRINKET STACKING BUG Like RELICS ---
+        Multimap<RegistryEntry<EntityAttribute>, EntityAttributeModifier> mutableModifiers = ArrayListMultimap.create(defaultModifiers);
+        String itemName = net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).getPath();
+
         for (var entry : this.customAttributes.modifiers()) {
-            modifiers.put(entry.attribute(),
-                    new EntityAttributeModifier(slotIdentifier, entry.modifier().value(), entry.modifier().operation()));
+            Identifier uniqueModId = Identifier.of(slotIdentifier.getNamespace(),
+                    slotIdentifier.getPath() + "_" + itemName + "_" + entry.modifier().id().getPath());
+            mutableModifiers.put(entry.attribute(),
+                    new EntityAttributeModifier(uniqueModId, entry.modifier().value(), entry.modifier().operation()));
         }
-        return modifiers;
+        return mutableModifiers;
+        // ------------------------------------------------
     }
 
     public void setConfigurableModifiers(AttributeModifiersComponent component) {
